@@ -121,14 +121,23 @@ const App = () => {
           {/* Route de redirection */}
           <Route path="/" element={<Navigate to="/login" replace />} />
 
-        
+          {/* Route de connexion */}
+          <Route
+            path="/login"
+            element={
+              <AuthRedirect>
+                <Login />
+              </AuthRedirect>
+            }
+          />
+
           {/* Routes du dashboard - Toutes protégées */}
           <Route
             path="/dashboard"
             element={
-              
+              <ProtectedRoute>
                 <DashboardLayout />
-              
+              </ProtectedRoute>
             }
           >
             <Route index element={<Dashboard />} />
