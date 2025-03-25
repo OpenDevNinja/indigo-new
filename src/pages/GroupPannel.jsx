@@ -29,17 +29,18 @@ const PanelGroups = () => {
   // Récupération des groupes de panneaux depuis l'API
   const fetchPanelGroups = async () => {
     try {
-      setLoading(true);
-      const data = await PanelGroupService.getAll();
-      setPanelGroups(data);
+        setLoading(true);
+        const response = await PanelGroupService.getAll();
+        const data = response.results || response.data || response || [];
+       
+        setPanelGroups(data);
     } catch (error) {
-      toast.error(error.message || 'Erreur lors du chargement des groupes de panneaux');
-      console.error('Erreur de chargement:', error);
+        toast.error(error.message || 'Erreur lors du chargement des groupes de panneaux');
+        console.error('Erreur de chargement:', error);
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
-  };
-
+};
   // Colonnes pour le tableau
   const columns = [
     {
@@ -171,7 +172,7 @@ const PanelGroups = () => {
       
       <h1 className="text-2xl font-bold mb-6 text-gray-800 dark:text-white">Gestion des Groupes de Panneaux</h1>
       
-      <DataTable 
+      <DataTable
         data={panelGroups}
         columns={columns}
         title="Groupes de panneaux"
@@ -180,8 +181,7 @@ const PanelGroups = () => {
         onDelete={handleDeleteClick}
         loading={loading}
         filename="groupes-panneaux-export"
-      />
-      
+    />
       {/* Modal pour ajout/modification */}
       <ModalForm
         isOpen={isModalOpen}

@@ -38,8 +38,16 @@ const Cities = () => {
   const fetchCities = async () => {
     try {
       setLoading(true);
-      const data = await CityService.getAll();
-      setCities(data);
+      const response = await CityService.getAll();
+      
+      // Log pour diagnostiquer la structure des données
+      console.log('Données des villes reçues:', response);
+      
+      // Transformation robuste en tableau
+      const citiesArray = response.results || response.data || response || [];
+      const finalCities = Array.isArray(citiesArray) ? citiesArray : [];
+      
+      setCities(finalCities);
     } catch (error) {
       toast.error(error.message || 'Erreur lors du chargement des villes');
       console.error('Erreur de chargement:', error);
@@ -51,27 +59,30 @@ const Cities = () => {
   // Récupération des pays depuis l'API
   const fetchCountries = async () => {
     try {
-      const data = await CountryService.getAll();
-      setCountries(data);
+      const response = await CountryService.getAll();
+      const countriesArray = response.results || response.data || response || [];
+      setCountries(Array.isArray(countriesArray) ? countriesArray : []);
     } catch (error) {
       toast.error(error.message || 'Erreur lors du chargement des pays');
       console.error('Erreur de chargement:', error);
     }
   };
-
-  // Récupération des communes par pays
+  
   const fetchCommunesByCountry = async (countryId) => {
     if (!countryId) {
       setCommunes([]);
       return;
     }
-
+  
     try {
-      const data = await CommuneService.getByCountry(countryId);
-      setCommunes(data);
+      const response = await CommuneService.getByCountry(countryId);
+      const communesArray = response.results || response.data || response || [];
+      const finalCommunes = Array.isArray(communesArray) ? communesArray : [];
+      
+      setCommunes(finalCommunes);
       
       // Réinitialiser la commune sélectionnée si elle n'appartient plus au pays sélectionné
-      if (formValues.commune_id && !data.some(c => c.id === formValues.commune_id)) {
+      if (formValues.commune_id && !finalCommunes.some(c => c.id === formValues.commune_id)) {
         setFormValues(prev => ({ ...prev, commune_id: '' }));
       }
     } catch (error) {
@@ -79,7 +90,7 @@ const Cities = () => {
       console.error('Erreur de chargement:', error);
     }
   };
-
+  
   // Effet pour charger les communes lorsqu'un pays est sélectionné
   useEffect(() => {
     if (selectedCountry) {

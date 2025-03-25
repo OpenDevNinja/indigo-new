@@ -1,4 +1,3 @@
-// src/pages/Customers.jsx
 import React, { useState, useEffect } from 'react';
 import { toast, ToastContainer } from 'react-toastify';
 import { User, Briefcase, MapPin, Phone, Mail, Loader } from 'lucide-react';
@@ -25,7 +24,7 @@ const Customers = () => {
     indication: '',
     phone: '',
     entreprise_name: '',
-    type: 'particulier',
+    type: 'personal',
     city_id: ''
   });
   const [formErrors, setFormErrors] = useState({});
@@ -41,7 +40,9 @@ const Customers = () => {
   const fetchCustomers = async () => {
     try {
       setLoading(true);
-      const data = await CustomerService.getAll();
+      const response = await CustomerService.getAll();
+      const data = response.results || response.data || response || [];
+
       setCustomers(data);
     } catch (error) {
       toast.error(error.message || 'Erreur lors du chargement des clients');
@@ -54,8 +55,17 @@ const Customers = () => {
   // Récupération des villes depuis l'API
   const fetchCities = async () => {
     try {
-      const data = await CityService.getAll();
-      setCities(data);
+      const response = await CityService.getAll();
+      // Gestion de différents formats de réponse possibles
+      const data = response.results || response.data || response || [];
+
+      // Vérification et log pour le débogage
+      console.log('Données des villes:', data);
+
+      // S'assurer que data est un tableau
+      const citiesArray = Array.isArray(data) ? data : [];
+
+      setCities(citiesArray);
     } catch (error) {
       toast.error('Erreur lors du chargement des villes');
       console.error('Erreur de chargement des villes:', error);
@@ -86,11 +96,10 @@ const Customers = () => {
       accessor: 'type',
       sortable: true,
       cell: (row) => (
-        <div className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-          row.type === 'entreprise' 
-            ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300' 
+        <div className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${row.type === 'entreprise'
+            ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300'
             : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
-        }`}>
+          }`}>
           {row.type === 'entreprise' ? 'Entreprise' : 'Particulier'}
         </div>
       )
@@ -159,7 +168,7 @@ const Customers = () => {
       indication: '',
       phone: '',
       entreprise_name: '',
-      type: 'particulier',
+      type: 'personal',
       city_id: ''
     });
     setFormErrors({});
@@ -193,7 +202,7 @@ const Customers = () => {
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormValues(prev => ({ ...prev, [name]: value }));
-    
+
     // Effacer l'erreur de ce champ si elle existe
     if (formErrors[name]) {
       setFormErrors(prev => ({ ...prev, [name]: null }));
@@ -203,29 +212,29 @@ const Customers = () => {
   // Validation du formulaire
   const validateForm = () => {
     const errors = {};
-    
+
     if (!formValues.fullname.trim()) {
       errors.fullname = "Le nom complet est requis";
     }
-    
+
     if (!formValues.email.trim()) {
       errors.email = "L'email est requis";
     } else if (!/\S+@\S+\.\S+/.test(formValues.email)) {
       errors.email = "Format d'email invalide";
     }
-    
+
     if (!formValues.phone.trim()) {
       errors.phone = "Le téléphone est requis";
     }
-    
+
     if (formValues.type === 'entreprise' && !formValues.entreprise_name.trim()) {
       errors.entreprise_name = "Le nom de l'entreprise est requis";
     }
-    
+
     if (!formValues.city_id) {
       errors.city_id = "La ville est requise";
     }
-    
+
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -233,13 +242,13 @@ const Customers = () => {
   // Soumission du formulaire
   const handleFormSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
-    
+
     setFormSubmitting(true);
-    
+
     try {
       if (selectedCustomer) {
         // Mise à jour d'un client existant
@@ -250,7 +259,7 @@ const Customers = () => {
         await CustomerService.create(formValues);
         toast.success(`Client "${formValues.fullname}" ajouté avec succès`);
       }
-      
+
       // Fermer la modal et rafraîchir les données
       setIsModalOpen(false);
       fetchCustomers();
@@ -270,7 +279,7 @@ const Customers = () => {
   // Suppression d'un client
   const handleDeleteConfirm = async () => {
     if (!selectedCustomer) return;
-    
+
     try {
       await CustomerService.delete(selectedCustomer.id);
       toast.success(`Client "${selectedCustomer.fullname}" supprimé avec succès`);
@@ -285,10 +294,10 @@ const Customers = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       <ToastContainer position="top-right" autoClose={5000} hideProgressBar={false} />
-      
+
       <h1 className="text-2xl font-bold mb-6 text-gray-800 dark:text-white">Gestion des Clients</h1>
-      
-      <DataTable 
+
+      <DataTable
         data={customers}
         columns={columns}
         title="Liste des clients"
@@ -298,7 +307,7 @@ const Customers = () => {
         loading={loading}
         filename="clients-export"
       />
-      
+
       {/* Modal pour ajout/modification */}
       <ModalForm
         isOpen={isModalOpen}
@@ -317,8 +326,8 @@ const Customers = () => {
                   <input
                     type="radio"
                     name="type"
-                    value="particulier"
-                    checked={formValues.type === 'particulier'}
+                    value="personal"
+                    checked={formValues.type === 'personal'}
                     onChange={handleInputChange}
                     className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600"
                   />
@@ -337,7 +346,7 @@ const Customers = () => {
                 </label>
               </div>
             </div>
-            
+
             {/* Nom complet */}
             <div>
               <label htmlFor="fullname" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -349,16 +358,15 @@ const Customers = () => {
                 name="fullname"
                 value={formValues.fullname}
                 onChange={handleInputChange}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white dark:border-gray-600 transition-colors duration-200 ${
-                  formErrors.fullname ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-300'
-                }`}
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white dark:border-gray-600 transition-colors duration-200 ${formErrors.fullname ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-300'
+                  }`}
                 placeholder="Nom complet"
               />
               {formErrors.fullname && (
                 <p className="mt-1 text-sm text-red-600 dark:text-red-400">{formErrors.fullname}</p>
               )}
             </div>
-            
+
             {/* Nom de l'entreprise (conditionnel) */}
             {formValues.type === 'entreprise' && (
               <div>
@@ -371,9 +379,8 @@ const Customers = () => {
                   name="entreprise_name"
                   value={formValues.entreprise_name}
                   onChange={handleInputChange}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white dark:border-gray-600 transition-colors duration-200 ${
-                    formErrors.entreprise_name ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-300'
-                  }`}
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white dark:border-gray-600 transition-colors duration-200 ${formErrors.entreprise_name ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-300'
+                    }`}
                   placeholder="Nom de l'entreprise"
                 />
                 {formErrors.entreprise_name && (
@@ -381,7 +388,7 @@ const Customers = () => {
                 )}
               </div>
             )}
-            
+
             {/* Email */}
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -393,16 +400,15 @@ const Customers = () => {
                 name="email"
                 value={formValues.email}
                 onChange={handleInputChange}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white dark:border-gray-600 transition-colors duration-200 ${
-                  formErrors.email ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-300'
-                }`}
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white dark:border-gray-600 transition-colors duration-200 ${formErrors.email ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-300'
+                  }`}
                 placeholder="Email"
               />
               {formErrors.email && (
                 <p className="mt-1 text-sm text-red-600 dark:text-red-400">{formErrors.email}</p>
               )}
             </div>
-            
+
             {/* Téléphone */}
             <div>
               <label htmlFor="phone" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -414,16 +420,15 @@ const Customers = () => {
                 name="phone"
                 value={formValues.phone}
                 onChange={handleInputChange}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white dark:border-gray-600 transition-colors duration-200 ${
-                  formErrors.phone ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-300'
-                }`}
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white dark:border-gray-600 transition-colors duration-200 ${formErrors.phone ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-300'
+                  }`}
                 placeholder="Téléphone"
               />
               {formErrors.phone && (
                 <p className="mt-1 text-sm text-red-600 dark:text-red-400">{formErrors.phone}</p>
               )}
             </div>
-            
+
             {/* Indication */}
             <div>
               <label htmlFor="indication" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -439,7 +444,7 @@ const Customers = () => {
                 placeholder="Indication"
               />
             </div>
-            
+
             {/* Ville */}
             <div>
               <label htmlFor="city_id" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -450,9 +455,8 @@ const Customers = () => {
                 name="city_id"
                 value={formValues.city_id}
                 onChange={handleInputChange}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white dark:border-gray-600 transition-colors duration-200 ${
-                  formErrors.city_id ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-300'
-                }`}
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white dark:border-gray-600 transition-colors duration-200 ${formErrors.city_id ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-300'
+                  }`}
               >
                 <option value="">Sélectionnez une ville</option>
                 {cities.map(city => (
@@ -464,7 +468,7 @@ const Customers = () => {
               )}
             </div>
           </div>
-          
+
           <div className="flex justify-end space-x-3 mt-6">
             <button
               type="button"
@@ -473,7 +477,7 @@ const Customers = () => {
             >
               Annuler
             </button>
-            
+
             <button
               type="submit"
               disabled={formSubmitting}
@@ -491,7 +495,7 @@ const Customers = () => {
           </div>
         </form>
       </ModalForm>
-      
+
       {/* Modal de confirmation de suppression */}
       <DeleteAlert
         isOpen={isDeleteModalOpen}

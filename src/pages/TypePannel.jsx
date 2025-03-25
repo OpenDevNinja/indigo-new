@@ -6,30 +6,25 @@ import ModalForm from '../components/FormModal';
 import DeleteAlert from '../components/DeleteAlert';
 import { Loader, LayoutGrid } from 'lucide-react';
 
-/**
- * Page de gestion des types de panneaux
- */
 const PanelTypes = () => {
-  // États pour la gestion des données
   const [panelTypes, setPanelTypes] = useState([]);
   const [selectedPanelType, setSelectedPanelType] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [formValues, setFormValues] = useState({ name: '' });
+  const [formValues, setFormValues] = useState({ type: '' });
   const [formErrors, setFormErrors] = useState({});
   const [formSubmitting, setFormSubmitting] = useState(false);
 
-  // Chargement initial des données
   useEffect(() => {
     fetchPanelTypes();
   }, []);
 
-  // Récupération des types de panneaux depuis l'API
   const fetchPanelTypes = async () => {
     try {
       setLoading(true);
-      const data = await PanelTypeService.getAll();
+      const response = await PanelTypeService.getAll();
+      const data = response.results || response.data || response || [];
       setPanelTypes(data);
     } catch (error) {
       toast.error(error.message || 'Erreur lors du chargement des types de panneaux');
@@ -39,7 +34,6 @@ const PanelTypes = () => {
     }
   };
 
-  // Colonnes pour le tableau
   const columns = [
     {
       header: 'ID',
@@ -48,13 +42,13 @@ const PanelTypes = () => {
       excludeFromExport: true
     },
     {
-      header: 'Nom',
-      accessor: 'name',
+      header: 'Type',
+      accessor: 'type',
       sortable: true,
       cell: (row) => (
         <div className="flex items-center gap-2">
           <LayoutGrid size={16} className="text-gray-500" />
-          <span>{row.name}</span>
+          <span>{row.type}</span>
         </div>
       )
     },
@@ -66,53 +60,46 @@ const PanelTypes = () => {
     }
   ];
 
-  // Gestion de l'ouverture du formulaire d'ajout
   const handleAddClick = () => {
     setSelectedPanelType(null);
-    setFormValues({ name: '' });
+    setFormValues({ type: '' });
     setFormErrors({});
     setIsModalOpen(true);
   };
 
-  // Gestion de l'ouverture du formulaire d'édition
   const handleEditClick = (panelType) => {
     setSelectedPanelType(panelType);
-    setFormValues({ name: panelType.name });
+    setFormValues({ type: panelType.type });
     setFormErrors({});
     setIsModalOpen(true);
   };
 
-  // Gestion de l'ouverture de l'alerte de suppression
   const handleDeleteClick = (id) => {
     const panelType = panelTypes.find(c => c.id === id);
     setSelectedPanelType(panelType);
     setIsDeleteModalOpen(true);
   };
 
-  // Gestion du changement des valeurs du formulaire
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormValues(prev => ({ ...prev, [name]: value }));
     
-    // Effacer l'erreur de ce champ si elle existe
     if (formErrors[name]) {
       setFormErrors(prev => ({ ...prev, [name]: null }));
     }
   };
 
-  // Validation du formulaire
   const validateForm = () => {
     const errors = {};
     
-    if (!formValues.name.trim()) {
-      errors.name = "Le nom du type de panneau est requis";
+    if (!formValues.type.trim()) {
+      errors.type = "Le type de panneau est requis";
     }
     
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
-  // Soumission du formulaire
   const handleFormSubmit = async (e) => {
     e.preventDefault();
     
@@ -124,20 +111,16 @@ const PanelTypes = () => {
     
     try {
       if (selectedPanelType) {
-        // Mise à jour d'un type de panneau existant
         await PanelTypeService.update(selectedPanelType.id, formValues);
-        toast.success(`Type de panneau "${formValues.name}" mis à jour avec succès`);
+        toast.success(`Type de panneau "${formValues.type}" mis à jour avec succès`);
       } else {
-        // Création d'un nouveau type de panneau
         await PanelTypeService.create(formValues);
-        toast.success(`Type de panneau "${formValues.name}" ajouté avec succès`);
+        toast.success(`Type de panneau "${formValues.type}" ajouté avec succès`);
       }
       
-      // Fermer la modal et rafraîchir les données
       setIsModalOpen(false);
       fetchPanelTypes();
     } catch (error) {
-      // Gestion des erreurs de validation
       if (error.validationErrors) {
         setFormErrors(error.validationErrors);
       } else {
@@ -149,13 +132,12 @@ const PanelTypes = () => {
     }
   };
 
-  // Suppression d'un type de panneau
   const handleDeleteConfirm = async () => {
     if (!selectedPanelType) return;
     
     try {
       await PanelTypeService.delete(selectedPanelType.id);
-      toast.success(`Type de panneau "${selectedPanelType.name}" supprimé avec succès`);
+      toast.success(`Type de panneau "${selectedPanelType.type}" supprimé avec succès`);
       setIsDeleteModalOpen(false);
       fetchPanelTypes();
     } catch (error) {
@@ -181,33 +163,32 @@ const PanelTypes = () => {
         filename="types-panneaux-export"
       />
       
-      {/* Modal pour ajout/modification */}
       <ModalForm
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={selectedPanelType ? `Modifier le type: ${selectedPanelType.name}` : "Ajouter un nouveau type de panneau"}
+        title={selectedPanelType ? `Modifier le type: ${selectedPanelType.type}` : "Ajouter un nouveau type de panneau"}
       >
         <form onSubmit={handleFormSubmit} className="space-y-4">
           <div>
             <label 
-              htmlFor="name" 
+              htmlFor="type" 
               className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
             >
-              Nom du type de panneau
+              Type de panneau
             </label>
             <input
               type="text"
-              id="name"
-              name="name"
-              value={formValues.name}
+              id="type"
+              name="type"
+              value={formValues.type}
               onChange={handleInputChange}
               className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white dark:border-gray-600 transition-colors duration-200 ${
-                formErrors.name ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-300'
+                formErrors.type ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-300'
               }`}
-              placeholder="Nom du type de panneau"
+              placeholder="Type de panneau"
             />
-            {formErrors.name && (
-              <p className="mt-1 text-sm text-red-600 dark:text-red-400">{formErrors.name}</p>
+            {formErrors.type && (
+              <p className="mt-1 text-sm text-red-600 dark:text-red-400">{formErrors.type}</p>
             )}
           </div>
           
@@ -238,12 +219,11 @@ const PanelTypes = () => {
         </form>
       </ModalForm>
       
-      {/* Modal de confirmation de suppression */}
       <DeleteAlert
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
         onConfirm={handleDeleteConfirm}
-        itemName={selectedPanelType ? `le type de panneau "${selectedPanelType.name}"` : ""}
+        itemName={selectedPanelType ? `le type de panneau "${selectedPanelType.type}"` : ""}
       />
     </div>
   );

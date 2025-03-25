@@ -4,8 +4,15 @@ import { BaseApiService } from './api';
  * Service pour la gestion du panel
  */
 export const PanelService = {
+ 
+
   async getAll() {
-    return await BaseApiService.get('/panel/panel/');
+    try {
+      return await BaseApiService.get('/panel/panel/');
+    } catch (error) {
+      console.error('Error fetching customers:', error);
+      throw error;
+    }
   },
 
   async getById(id) {

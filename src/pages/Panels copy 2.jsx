@@ -2,13 +2,28 @@ import React, { useState, useEffect } from 'react';
 import { toast, ToastContainer } from 'react-toastify';
 import { Map, Loader, Eye, Calendar } from 'lucide-react';
 import { PanelService } from '../services/panel';
-import { PanelTypeService } from '../services/panelType';
-import { PanelGroupService } from '../services/panelGroup';
-import { CommuneService } from '../services/commune';
-import { CityService } from '../services/city';
 import DataTable from '../components/DataTable';
 import ModalForm from '../components/FormModal';
 import DeleteAlert from '../components/DeleteAlert';
+
+/**
+ * Service pour charger les données de référence
+ */
+const ReferenceService = {
+  // Ces fonctions seront implémentées une fois les services API créés
+  async getPanelTypes() {
+    return await BaseApiService.get('/panel/panel-types/');
+  },
+  async getPanelGroups() {
+    return await BaseApiService.get('/panel/panel-groups/');
+  },
+  async getCommunes() {
+    return await BaseApiService.get('/panel/communes/');
+  },
+  async getCities() {
+    return await BaseApiService.get('/panel/cities/');
+  }
+};
 
 /**
  * Page de gestion des panneaux publicitaires
@@ -50,9 +65,7 @@ const Panels = () => {
   const fetchPanels = async () => {
     try {
       setLoading(true);
-      const response = await PanelService.getAll();
-      console.log(response)
-      const data = response.results || response.data || response || [];
+      const data = await PanelService.getAll();
       setPanels(data);
     } catch (error) {
       toast.error(error.message || 'Erreur lors du chargement des panneaux');
@@ -67,12 +80,11 @@ const Panels = () => {
     try {
       setLoadingReferences(true);
       const [typesData, groupsData, communesData, citiesData] = await Promise.all([
-        PanelTypeService.getAll(),
-        PanelGroupService.getAll(),
-        CommuneService.getAll(),
-        CityService.getAll()
+        ReferenceService.getPanelTypes(),
+        ReferenceService.getPanelGroups(),
+        ReferenceService.getCommunes(),
+        ReferenceService.getCities()
       ]);
-      console.log(typesData, groupsData, communesData, citiesData)
       
       setPanelTypes(typesData);
       setPanelGroups(groupsData);
@@ -86,7 +98,7 @@ const Panels = () => {
     }
   };
 
-  // Colonnes pour le tableau (reste identique)
+  // Colonnes pour le tableau
   const columns = [
     {
       header: 'ID',
@@ -147,9 +159,6 @@ const Panels = () => {
     }
   ];
 
-  // Le reste des méthodes reste identique (handleAddClick, handleEditClick, handleDeleteClick, etc.)
-  // ... (copier le reste du code de l'implémentation précédente)
-
   // Gestion de l'ouverture du formulaire d'ajout
   const handleAddClick = () => {
     setSelectedPanel(null);
@@ -199,14 +208,6 @@ const Panels = () => {
     // Effacer l'erreur de ce champ si elle existe
     if (formErrors[name]) {
       setFormErrors(prev => ({ ...prev, [name]: null }));
-    }
-
-    // Logique dynamique pour charger les villes en fonction de la commune sélectionnée
-    if (name === 'commune_id') {
-      // Si nécessaire, filtrer les villes par commune
-      const filteredCities = cities.filter(city => city.commune_id === value);
-      // Réinitialiser la ville si la commune change
-      setFormValues(prev => ({ ...prev, city_id: '' }));
     }
   };
 
@@ -425,7 +426,7 @@ const Panels = () => {
               disabled={loadingReferences}
             >
               <option value="">Sélectionner une ville</option>
-              {cities.filter(city => city.commune_id === formValues.commune_id).map(city => (
+              {cities.map(city => (
                 <option key={city.id} value={city.id}>{city.name}</option>
               ))}
             </select>

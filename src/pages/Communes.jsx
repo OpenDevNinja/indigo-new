@@ -39,7 +39,19 @@ const Communes = () => {
     try {
       setLoading(true);
       const data = await CommuneService.getAll();
-      setCommunes(data);
+      
+      console.log('Données communes reçues:', data);
+      
+      // Si data n'est pas un tableau, faites un log détaillé
+      if (!Array.isArray(data)) {
+        console.log('Type de données:', typeof data);
+        console.log('Propriétés de data:', Object.keys(data));
+      }
+      
+      // Transformation en tableau
+      const communesArray = Array.isArray(data) ? data : (data.results || data.data || []);
+      
+      setCommunes(communesArray);
     } catch (error) {
       toast.error(error.message || 'Erreur lors du chargement des communes');
       console.error('Erreur de chargement:', error);
@@ -47,7 +59,7 @@ const Communes = () => {
       setLoading(false);
     }
   };
-
+  
   // Récupération des pays pour le formulaire
   const fetchCountries = async () => {
     try {

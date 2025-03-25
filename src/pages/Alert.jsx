@@ -34,7 +34,9 @@ const Alerts = () => {
   const fetchAlerts = async () => {
     try {
       setLoading(true);
-      const data = await AlertService.getAll();
+      const response = await AlertService.getAll();
+      const data = response.results || response.data || response || [];
+      
       setAlerts(data);
     } catch (error) {
       toast.error(error.message || 'Erreur lors du chargement des alertes');
