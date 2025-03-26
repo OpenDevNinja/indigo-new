@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { toast, ToastContainer } from 'react-toastify';
-import { Map, Loader, Eye, Calendar } from 'lucide-react';
+import { Map, Loader } from 'lucide-react';
 import { PanelService } from '../services/panel';
 import { PanelTypeService } from '../services/panelType';
 import { PanelGroupService } from '../services/panelGroup';
@@ -20,6 +20,14 @@ const Panels = () => {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  
+  // États pour les données de référence
+  const [panelTypes, setPanelTypes] = useState([]);
+  const [panelGroups, setPanelGroups] = useState([]);
+  const [communes, setCommunes] = useState([]);
+  const [cities, setCities] = useState([]);
+  
+  // États du formulaire
   const [formValues, setFormValues] = useState({
     type_pannel_id: '',
     group_pannel_id: '',
@@ -32,13 +40,6 @@ const Panels = () => {
   });
   const [formErrors, setFormErrors] = useState({});
   const [formSubmitting, setFormSubmitting] = useState(false);
-  
-  // États pour les données de référence
-  const [panelTypes, setPanelTypes] = useState([]);
-  const [panelGroups, setPanelGroups] = useState([]);
-  const [communes, setCommunes] = useState([]);
-  const [cities, setCities] = useState([]);
-  const [loadingReferences, setLoadingReferences] = useState(false);
 
   // Chargement initial des données
   useEffect(() => {
@@ -50,10 +51,20 @@ const Panels = () => {
   const fetchPanels = async () => {
     try {
       setLoading(true);
-      const response = await PanelService.getAll();
-      console.log(response)
-      const data = response.results || response.data || response || [];
-      setPanels(data);
+      const data = await PanelService.getAll();
+      
+      console.log('Données panneaux reçues:', data);
+      
+      // Si data n'est pas un tableau, faites un log détaillé
+      if (!Array.isArray(data)) {
+        console.log('Type de données:', typeof data);
+        console.log('Propriétés de data:', Object.keys(data));
+      }
+      
+      // Transformation en tableau
+      const panelsArray = Array.isArray(data) ? data : (data.results || data.data || []);
+      
+      setPanels(panelsArray);
     } catch (error) {
       toast.error(error.message || 'Erreur lors du chargement des panneaux');
       console.error('Erreur de chargement:', error);
@@ -65,28 +76,25 @@ const Panels = () => {
   // Récupération des données de référence
   const fetchReferenceData = async () => {
     try {
-      setLoadingReferences(true);
       const [typesData, groupsData, communesData, citiesData] = await Promise.all([
-        PanelTypeService.getAll(),
-        PanelGroupService.getAll(),
-        CommuneService.getAll(),
-        CityService.getAll()
+        PanelTypeService.getAll().catch(() => []),
+        PanelGroupService.getAll().catch(() => []),
+        CommuneService.getAll().catch(() => []),
+        CityService.getAll().catch(() => [])
       ]);
       console.log(typesData, groupsData, communesData, citiesData)
-      
-      setPanelTypes(typesData);
-      setPanelGroups(groupsData);
-      setCommunes(communesData);
-      setCities(citiesData);
+      // Transformation en tableaux
+      setPanelTypes(Array.isArray(typesData) ? typesData : (typesData.results || typesData.data || []));
+      setPanelGroups(Array.isArray(groupsData) ? groupsData : (groupsData.results || groupsData.data || []));
+      setCommunes(Array.isArray(communesData) ? communesData : (communesData.results || communesData.data || []));
+      setCities(Array.isArray(citiesData) ? citiesData : (citiesData.results || citiesData.data || []));
     } catch (error) {
       toast.error('Erreur lors du chargement des données de référence');
       console.error('Erreur de chargement des références:', error);
-    } finally {
-      setLoadingReferences(false);
     }
   };
 
-  // Colonnes pour le tableau (reste identique)
+  // Colonnes pour le tableau
   const columns = [
     {
       header: 'ID',
@@ -147,9 +155,6 @@ const Panels = () => {
     }
   ];
 
-  // Le reste des méthodes reste identique (handleAddClick, handleEditClick, handleDeleteClick, etc.)
-  // ... (copier le reste du code de l'implémentation précédente)
-
   // Gestion de l'ouverture du formulaire d'ajout
   const handleAddClick = () => {
     setSelectedPanel(null);
@@ -171,14 +176,14 @@ const Panels = () => {
   const handleEditClick = (panel) => {
     setSelectedPanel(panel);
     setFormValues({
-      type_pannel_id: panel.type_pannel_id,
-      group_pannel_id: panel.group_pannel_id,
-      commune_id: panel.commune_id,
-      surface: panel.surface,
-      city_id: panel.city_id,
-      quantity: panel.quantity,
-      face_number: panel.face_number,
-      sense: panel.sense
+      type_pannel_id: panel.type_pannel_id || '',
+      group_pannel_id: panel.group_pannel_id || '',
+      commune_id: panel.commune_id || '',
+      surface: panel.surface || '',
+      city_id: panel.city_id || '',
+      quantity: panel.quantity || '',
+      face_number: panel.face_number || 1,
+      sense: panel.sense || 'portrait'
     });
     setFormErrors({});
     setIsModalOpen(true);
@@ -201,11 +206,8 @@ const Panels = () => {
       setFormErrors(prev => ({ ...prev, [name]: null }));
     }
 
-    // Logique dynamique pour charger les villes en fonction de la commune sélectionnée
+    // Si la commune change, réinitialiser la ville sélectionnée
     if (name === 'commune_id') {
-      // Si nécessaire, filtrer les villes par commune
-      const filteredCities = cities.filter(city => city.commune_id === value);
-      // Réinitialiser la ville si la commune change
       setFormValues(prev => ({ ...prev, city_id: '' }));
     }
   };
@@ -298,6 +300,11 @@ const Panels = () => {
     }
   };
 
+  // Filtrer les villes en fonction de la commune sélectionnée
+  const filteredCities = formValues.commune_id 
+    ? cities.filter(city => city.commune_id == formValues.commune_id)
+    : [];
+
   return (
     <div className="container mx-auto px-4 py-8">
       <ToastContainer position="top-right" autoClose={5000} hideProgressBar={false} />
@@ -338,11 +345,10 @@ const Panels = () => {
               className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white dark:border-gray-600 transition-colors duration-200 ${
                 formErrors.type_pannel_id ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-300'
               }`}
-              disabled={loadingReferences}
             >
               <option value="">Sélectionner un type</option>
               {panelTypes.map(type => (
-                <option key={type.id} value={type.id}>{type.name}</option>
+                <option key={type.id} value={type.id}>{type.type}</option>
               ))}
             </select>
             {formErrors.type_pannel_id && (
@@ -366,7 +372,6 @@ const Panels = () => {
               className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white dark:border-gray-600 transition-colors duration-200 ${
                 formErrors.group_pannel_id ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-300'
               }`}
-              disabled={loadingReferences}
             >
               <option value="">Sélectionner un groupe</option>
               {panelGroups.map(group => (
@@ -394,7 +399,6 @@ const Panels = () => {
               className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white dark:border-gray-600 transition-colors duration-200 ${
                 formErrors.commune_id ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-300'
               }`}
-              disabled={loadingReferences}
             >
               <option value="">Sélectionner une commune</option>
               {communes.map(commune => (
@@ -419,13 +423,13 @@ const Panels = () => {
               name="city_id"
               value={formValues.city_id}
               onChange={handleInputChange}
+              //disabled={!formValues.commune_id}
               className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white dark:border-gray-600 transition-colors duration-200 ${
                 formErrors.city_id ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-300'
               }`}
-              disabled={loadingReferences}
             >
               <option value="">Sélectionner une ville</option>
-              {cities.filter(city => city.commune_id === formValues.commune_id).map(city => (
+              {cities.map(city => (
                 <option key={city.id} value={city.id}>{city.name}</option>
               ))}
             </select>
@@ -539,7 +543,7 @@ const Panels = () => {
             
             <button
               type="submit"
-              disabled={formSubmitting || loadingReferences}
+              disabled={formSubmitting}
               className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors duration-150 disabled:opacity-70 flex items-center"
             >
               {formSubmitting ? (

@@ -5,7 +5,7 @@ import { jwtDecode } from 'jwt-decode';
 const API_URL = '/api';
 // Création du client API
 const apiClient = axios.create({
-  baseURL: API_URL, // Utiliser baseURL au lieu de API_URL comme propriété
+  baseURL: API_URL, 
   headers: {
     'Content-Type': 'application/json',
   },
@@ -58,11 +58,7 @@ const isAdmin = () => {
   return false;
 };
 
-/**
- * Traite et enrichit les erreurs API
- * @param {Error} error - Erreur d'origine
- * @returns {Error} Erreur enrichie avec détails supplémentaires
- */
+
 const handleError = (error) => {
   console.error('Erreur API détaillée:', {
     status: error.response?.status,
@@ -70,18 +66,22 @@ const handleError = (error) => {
     message: error.message
   });
   
-  // Créer un objet d'erreur enrichi
   const enhancedError = new Error(error.message);
   
-  // Ajouter des propriétés supplémentaires à l'erreur
   if (error.response?.data) {
     enhancedError.detail = error.response.data.detail || error.response.data.message || error.message;
     enhancedError.statusCode = error.response.status;
     enhancedError.responseData = error.response.data;
+    
+    // Si c'est une erreur 404, personnalisez le message
+    if (error.response.status === 404) {
+      enhancedError.message = "Ressource non trouvée. Vérifiez l'URL de l'API.";
+    }
   }
   
   return enhancedError;
 };
+  
 
 // Configuration des intercepteurs
 apiClient.interceptors.request.use(
@@ -132,13 +132,7 @@ const get = async (url, config = {}) => {
   }
 };
 
-/**
- * Effectue une requête POST
- * @param {string} url - URL de la requête
- * @param {Object} data - Données à envoyer
- * @param {Object} config - Configuration Axios optionnelle
- * @returns {Promise<any>} Données de réponse
- */
+
 const post = async (url, data = {}, config = {}) => {
   try {
     return await apiClient.post(url, data, config);
@@ -147,13 +141,7 @@ const post = async (url, data = {}, config = {}) => {
   }
 };
 
-/**
- * Effectue une requête PUT
- * @param {string} url - URL de la requête
- * @param {Object} data - Données à envoyer
- * @param {Object} config - Configuration Axios optionnelle
- * @returns {Promise<any>} Données de réponse
- */
+
 const put = async (url, data = {}, config = {}) => {
   try {
     return await apiClient.put(url, data, config);
@@ -162,12 +150,7 @@ const put = async (url, data = {}, config = {}) => {
   }
 };
 
-/**
- * Effectue une requête DELETE
- * @param {string} url - URL de la requête
- * @param {Object} config - Configuration Axios optionnelle
- * @returns {Promise<any>} Données de réponse
- */
+
 const deleteRequest = async (url, config = {}) => {
   try {
     return await apiClient.delete(url, config);

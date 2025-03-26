@@ -1,4 +1,3 @@
-// src/pages/Campaigns.jsx
 import React, { useState, useEffect } from 'react';
 import { toast, ToastContainer } from 'react-toastify';
 import { CampaignService } from '../services/campaign';
@@ -7,7 +6,7 @@ import { CustomerService } from '../services/customer';
 import DataTable from '../components/DataTable';
 import ModalForm from '../components/FormModal';
 import DeleteAlert from '../components/DeleteAlert';
-import { Loader, Calendar, Users, Layout, PlusCircle, MinusCircle } from 'lucide-react';
+import { Calendar, Users, Loader, PlusCircle, MinusCircle } from 'lucide-react';
 
 /**
  * Page de gestion des campagnes publicitaires
@@ -15,12 +14,16 @@ import { Loader, Calendar, Users, Layout, PlusCircle, MinusCircle } from 'lucide
 const Campaigns = () => {
   // États pour la gestion des données
   const [campaigns, setCampaigns] = useState([]);
-  const [panels, setPanels] = useState([]);
-  const [customers, setCustomers] = useState([]);
   const [selectedCampaign, setSelectedCampaign] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  
+  // États pour les données de référence
+  const [panels, setPanels] = useState([]);
+  const [customers, setCustomers] = useState([]);
+  
+  // États du formulaire
   const [formValues, setFormValues] = useState({
     customer_id: '',
     start_date: '',
@@ -29,14 +32,12 @@ const Campaigns = () => {
   });
   const [formErrors, setFormErrors] = useState({});
   const [formSubmitting, setFormSubmitting] = useState(false);
-  const [searchPanelTerm, setSearchPanelTerm] = useState('');
-  const [filteredPanels, setFilteredPanels] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Chargement initial des données
   useEffect(() => {
     fetchCampaigns();
-    fetchPanels();
-    fetchCustomers();
+    fetchReferenceData();
   }, []);
 
   // Récupération des campagnes depuis l'API
@@ -44,7 +45,13 @@ const Campaigns = () => {
     try {
       setLoading(true);
       const data = await CampaignService.getAll();
-      setCampaigns(data);
+      
+      console.log('Données campagnes reçues:', data);
+      
+      // Transformation en tableau
+      const campaignsArray = Array.isArray(data) ? data : (data.results || data.data || []);
+      
+      setCampaigns(campaignsArray);
     } catch (error) {
       toast.error(error.message || 'Erreur lors du chargement des campagnes');
       console.error('Erreur de chargement:', error);
@@ -53,42 +60,33 @@ const Campaigns = () => {
     }
   };
 
-  // Récupération des panneaux depuis l'API
-  const fetchPanels = async () => {
+  // Récupération des données de référence
+  const fetchReferenceData = async () => {
     try {
-      const data = await PanelService.getAll();
-      setPanels(data);
-      setFilteredPanels(data);
+      const [panelsData, customersData] = await Promise.all([
+        PanelService.getAll().catch(() => []),
+        CustomerService.getAll().catch(() => [])
+      ]);
+      
+      console.log('Données référence:', { panelsData, customersData });
+      
+      // Transformation en tableaux
+      setPanels(Array.isArray(panelsData) ? panelsData : (panelsData.results || panelsData.data || []));
+      setCustomers(Array.isArray(customersData) ? customersData : (customersData.results || customersData.data || []));
     } catch (error) {
-      toast.error(error.message || 'Erreur lors du chargement des panneaux');
-      console.error('Erreur de chargement:', error);
+      toast.error('Erreur lors du chargement des données de référence');
+      console.error('Erreur de chargement des références:', error);
     }
   };
 
-  // Récupération des clients depuis l'API
-  const fetchCustomers = async () => {
-    try {
-      const data = await CustomerService.getAll();
-      setCustomers(data);
-    } catch (error) {
-      toast.error(error.message || 'Erreur lors du chargement des clients');
-      console.error('Erreur de chargement:', error);
-    }
-  };
-
-  // Filtrage des panneaux en fonction de la recherche
-  useEffect(() => {
-    if (searchPanelTerm.trim() === '') {
-      setFilteredPanels(panels);
-    } else {
-      const filtered = panels.filter(panel => 
-        panel.surface.toLowerCase().includes(searchPanelTerm.toLowerCase()) ||
-        panel.city?.name?.toLowerCase().includes(searchPanelTerm.toLowerCase()) ||
-        panel.commune?.name?.toLowerCase().includes(searchPanelTerm.toLowerCase())
-      );
-      setFilteredPanels(filtered);
-    }
-  }, [searchPanelTerm, panels]);
+  // Filtrage des panneaux
+  const filteredPanels = searchTerm 
+    ? panels.filter(panel => 
+        panel.surface.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (panel.city?.name?.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (panel.commune?.name?.toLowerCase().includes(searchTerm.toLowerCase()))
+      )
+    : panels;
 
   // Colonnes pour le tableau
   const columns = [
@@ -100,12 +98,12 @@ const Campaigns = () => {
     },
     {
       header: 'Client',
-      accessor: 'customer',
+      accessor: 'customer_name',
       sortable: true,
       cell: (row) => (
         <div className="flex items-center gap-2">
           <Users size={16} className="text-gray-500" />
-          <span>{row.customer?.name || 'N/A'}</span>
+          <span>{row.customer_name}</span>
         </div>
       )
     },
@@ -122,16 +120,10 @@ const Campaigns = () => {
       cell: (row) => new Date(row.end_date).toLocaleDateString('fr-FR')
     },
     {
-      header: 'Nombre de panneaux',
+      header: 'Panneaux',
       accessor: 'panel_count',
       sortable: true,
       cell: (row) => row.panel_data_for_campaign?.length || 0
-    },
-    {
-      header: 'Date de création',
-      accessor: 'created_at',
-      sortable: true,
-      cell: (row) => new Date(row.created_at).toLocaleDateString('fr-FR')
     }
   ];
 
@@ -152,14 +144,17 @@ const Campaigns = () => {
   const handleEditClick = (campaign) => {
     setSelectedCampaign(campaign);
     
-    // Formatage des dates pour l'input date
-    const formattedStartDate = new Date(campaign.start_date).toISOString().split('T')[0];
-    const formattedEndDate = new Date(campaign.end_date).toISOString().split('T')[0];
+    // Formatage des dates pour l'input
+    const formatDate = (dateString) => {
+      if (!dateString) return '';
+      const date = new Date(dateString);
+      return date.toISOString().split('T')[0];
+    };
     
     setFormValues({
-      customer_id: campaign.customer_id,
-      start_date: formattedStartDate,
-      end_date: formattedEndDate,
+      customer_id: campaign.customer_id || '',
+      start_date: formatDate(campaign.start_date),
+      end_date: formatDate(campaign.end_date),
       panel_data_for_campaign: campaign.panel_data_for_campaign || []
     });
     setFormErrors({});
@@ -184,29 +179,26 @@ const Campaigns = () => {
     }
   };
 
-  // Ajouter un panneau à la campagne
+  // Ajout d'un panneau à la campagne
   const handleAddPanel = (panel) => {
-    const panelIndex = formValues.panel_data_for_campaign.findIndex(
-      p => p.id === panel.id
-    );
+    const existingPanel = formValues.panel_data_for_campaign.find(p => p.id === panel.id);
     
-    if (panelIndex === -1) {
-      // Ajouter avec quantité 1 par défaut
+    if (existingPanel) {
+      // Si le panneau existe déjà, augmenter la quantité
+      setFormValues(prev => ({
+        ...prev,
+        panel_data_for_campaign: prev.panel_data_for_campaign.map(p =>
+          p.id === panel.id ? { ...p, quantity: p.quantity + 1 } : p
+        )
+      }));
+    } else {
+      // Ajouter un nouveau panneau avec quantité 1
       setFormValues(prev => ({
         ...prev,
         panel_data_for_campaign: [
           ...prev.panel_data_for_campaign,
-          { id: panel.id, quantity: 1, city_id: panel.city_id }
+          { id: panel.id, quantity: 1, panel_data: panel }
         ]
-      }));
-    } else {
-      // Incrémenter la quantité si déjà présent
-      const updatedPanels = [...formValues.panel_data_for_campaign];
-      updatedPanels[panelIndex].quantity += 1;
-      
-      setFormValues(prev => ({
-        ...prev,
-        panel_data_for_campaign: updatedPanels
       }));
     }
   };
@@ -215,24 +207,19 @@ const Campaigns = () => {
   const handleRemovePanel = (panelId) => {
     setFormValues(prev => ({
       ...prev,
-      panel_data_for_campaign: prev.panel_data_for_campaign.filter(
-        p => p.id !== panelId
-      )
+      panel_data_for_campaign: prev.panel_data_for_campaign.filter(p => p.id !== panelId)
     }));
   };
 
-  // Mettre à jour la quantité d'un panneau
-  const handlePanelQuantityChange = (panelId, quantity) => {
-    const updatedPanels = formValues.panel_data_for_campaign.map(panel => {
-      if (panel.id === panelId) {
-        return { ...panel, quantity: parseInt(quantity) || 0 };
-      }
-      return panel;
-    });
+  // Modification de la quantité d'un panneau
+  const handleQuantityChange = (panelId, quantity) => {
+    const newQuantity = Math.max(1, parseInt(quantity) || 1);
     
     setFormValues(prev => ({
       ...prev,
-      panel_data_for_campaign: updatedPanels
+      panel_data_for_campaign: prev.panel_data_for_campaign.map(p =>
+        p.id === panelId ? { ...p, quantity: newQuantity } : p
+      )
     }));
   };
 
@@ -251,11 +238,11 @@ const Campaigns = () => {
     if (!formValues.end_date) {
       errors.end_date = "La date de fin est requise";
     } else if (new Date(formValues.end_date) <= new Date(formValues.start_date)) {
-      errors.end_date = "La date de fin doit être ultérieure à la date de début";
+      errors.end_date = "La date de fin doit être après la date de début";
     }
     
-    if (!formValues.panel_data_for_campaign.length) {
-      errors.panel_data_for_campaign = "Veuillez sélectionner au moins un panneau";
+    if (formValues.panel_data_for_campaign.length === 0) {
+      errors.panel_data_for_campaign = "Au moins un panneau doit être sélectionné";
     }
     
     setFormErrors(errors);
@@ -314,7 +301,7 @@ const Campaigns = () => {
     }
   };
 
-  // Trouver les détails du panneau par ID
+  // Obtenir les détails d'un panneau
   const getPanelDetails = (panelId) => {
     return panels.find(panel => panel.id === panelId) || {};
   };
@@ -341,29 +328,26 @@ const Campaigns = () => {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title={selectedCampaign ? `Modifier la campagne` : "Créer une nouvelle campagne"}
+        size="xl" // Modal plus large pour accommoder la sélection de panneaux
       >
-        <form onSubmit={handleFormSubmit} className="space-y-6">
+        <form onSubmit={handleFormSubmit} className="space-y-4">
           {/* Sélection du client */}
           <div>
-            <label 
-              htmlFor="customer_id" 
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-            >
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Client
             </label>
             <select
-              id="customer_id"
               name="customer_id"
               value={formValues.customer_id}
               onChange={handleInputChange}
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white dark:border-gray-600 transition-colors duration-200 ${
-                formErrors.customer_id ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-300'
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white dark:border-gray-600 ${
+                formErrors.customer_id ? 'border-red-500' : 'border-gray-300'
               }`}
             >
               <option value="">Sélectionner un client</option>
               {customers.map(customer => (
                 <option key={customer.id} value={customer.id}>
-                  {customer.name}
+                  {customer.fullname}
                 </option>
               ))}
             </select>
@@ -375,20 +359,16 @@ const Campaigns = () => {
           {/* Dates de la campagne */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label 
-                htmlFor="start_date" 
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-              >
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Date de début
               </label>
               <input
                 type="date"
-                id="start_date"
                 name="start_date"
                 value={formValues.start_date}
                 onChange={handleInputChange}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white dark:border-gray-600 transition-colors duration-200 ${
-                  formErrors.start_date ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-300'
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white dark:border-gray-600 ${
+                  formErrors.start_date ? 'border-red-500' : 'border-gray-300'
                 }`}
               />
               {formErrors.start_date && (
@@ -397,20 +377,16 @@ const Campaigns = () => {
             </div>
             
             <div>
-              <label 
-                htmlFor="end_date" 
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-              >
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Date de fin
               </label>
               <input
                 type="date"
-                id="end_date"
                 name="end_date"
                 value={formValues.end_date}
                 onChange={handleInputChange}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white dark:border-gray-600 transition-colors duration-200 ${
-                  formErrors.end_date ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-300'
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white dark:border-gray-600 ${
+                  formErrors.end_date ? 'border-red-500' : 'border-gray-300'
                 }`}
               />
               {formErrors.end_date && (
@@ -419,38 +395,30 @@ const Campaigns = () => {
             </div>
           </div>
           
-          {/* Section de sélection des panneaux */}
+          {/* Sélection des panneaux */}
           <div>
-            <h3 className="text-md font-medium text-gray-800 dark:text-white mb-2">Sélection des panneaux</h3>
-            
-            {/* Recherche de panneaux */}
-            <div className="mb-4">
+            <div className="flex justify-between items-center mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Panneaux sélectionnés ({formValues.panel_data_for_campaign.length})
+              </label>
               <input
                 type="text"
                 placeholder="Rechercher un panneau..."
-                value={searchPanelTerm}
-                onChange={(e) => setSearchPanelTerm(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white transition-colors duration-200"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="px-3 py-1 w-full border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white"
               />
             </div>
             
             {/* Liste des panneaux disponibles */}
-            <div className="max-h-60 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg mb-4">
+            <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden mb-4 max-h-60 overflow-y-auto">
               <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead className="bg-gray-50 dark:bg-gray-700">
                   <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Surface
-                    </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Ville
-                    </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Commune
-                    </th>
-                    <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Action
-                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Surface</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Ville</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Commune</th>
+                    <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Action</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -461,12 +429,12 @@ const Campaigns = () => {
                           {panel.surface}
                         </td>
                         <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
-                          {panel.city?.name || 'N/A'}
+                          {panel.city_name || 'N/A'}
                         </td>
                         <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
-                          {panel.commune?.name || 'N/A'}
+                          {panel.commune_name || 'N/A'}
                         </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-sm text-right">
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-center">
                           <button
                             type="button"
                             onClick={() => handleAddPanel(panel)}
@@ -479,7 +447,7 @@ const Campaigns = () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={4} className="px-4 py-2 text-center text-sm text-gray-500 dark:text-gray-400">
+                      <td colSpan={4} className="px-4 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
                         Aucun panneau trouvé
                       </td>
                     </tr>
@@ -489,73 +457,61 @@ const Campaigns = () => {
             </div>
             
             {/* Panneaux sélectionnés */}
-            <div>
-              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Panneaux sélectionnés</h4>
-              
-              {formValues.panel_data_for_campaign.length > 0 ? (
-                <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                    <thead className="bg-gray-50 dark:bg-gray-700">
-                      <tr>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                          Surface
-                        </th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                          Ville
-                        </th>
-                        <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                          Quantité
-                        </th>
-                        <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                          Action
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                      {formValues.panel_data_for_campaign.map(panelData => {
-                        const panelDetails = getPanelDetails(panelData.id);
-                        return (
-                          <tr key={panelData.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                            <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
-                              {panelDetails.surface || 'N/A'}
-                            </td>
-                            <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
-                              {panelDetails.city?.name || 'N/A'}
-                            </td>
-                            <td className="px-4 py-2 whitespace-nowrap text-sm">
-                              <input
-                                type="number"
-                                min="1"
-                                value={panelData.quantity}
-                                onChange={(e) => handlePanelQuantityChange(panelData.id, e.target.value)}
-                                className="w-16 text-center px-2 py-1 border border-gray-300 dark:border-gray-600 rounded focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white"
-                              />
-                            </td>
-                            <td className="px-4 py-2 whitespace-nowrap text-sm text-center">
-                              <button
-                                type="button"
-                                onClick={() => handleRemovePanel(panelData.id)}
-                                className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
-                              >
-                                <MinusCircle size={18} />
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="text-center py-4 text-gray-500 dark:text-gray-400 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
-                  Aucun panneau sélectionné
-                </div>
-              )}
-              
-              {formErrors.panel_data_for_campaign && (
-                <p className="mt-1 text-sm text-red-600 dark:text-red-400">{formErrors.panel_data_for_campaign}</p>
-              )}
-            </div>
+            {formValues.panel_data_for_campaign.length > 0 ? (
+              <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                  <thead className="bg-gray-50 dark:bg-gray-700">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Surface</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Ville</th>
+                      <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Quantité</th>
+                      <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                    {formValues.panel_data_for_campaign.map(panelData => {
+                      const panel = getPanelDetails(panelData.id);
+                      return (
+                        <tr key={panelData.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                          <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
+                            {panel.surface || 'N/A'}
+                          </td>
+                          <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
+                            {panel.city_name || 'N/A'}
+                          </td>
+                          <td className="px-4 py-2 whitespace-nowrap text-sm text-center">
+                            <input
+                              type="number"
+                              min="1"
+                              value={panelData.quantity}
+                              onChange={(e) => handleQuantityChange(panelData.id, e.target.value)}
+                              className="w-16 text-center px-2 py-1 border border-gray-300 dark:border-gray-600 rounded focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white"
+                            />
+                          </td>
+                          <td className="px-4 py-2 whitespace-nowrap text-sm text-center">
+                            <button
+                              type="button"
+                              onClick={() => handleRemovePanel(panelData.id)}
+                              className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                            >
+                              <MinusCircle size={18} />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="text-center py-4 text-gray-500 dark:text-gray-400 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
+                Aucun panneau sélectionné
+              </div>
+            )}
+            
+            {formErrors.panel_data_for_campaign && (
+              <p className="mt-1 text-sm text-red-600 dark:text-red-400">{formErrors.panel_data_for_campaign}</p>
+            )}
           </div>
           
           <div className="flex justify-end space-x-3 mt-6">
@@ -590,7 +546,7 @@ const Campaigns = () => {
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
         onConfirm={handleDeleteConfirm}
-        itemName="cette campagne"
+        itemName={selectedCampaign ? "cette campagne" : ""}
       />
     </div>
   );

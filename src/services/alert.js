@@ -8,6 +8,7 @@ export const AlertService = {
     return await BaseApiService.get('/panel/alert/');
   },
 
+
   async getById(id) {
     return await BaseApiService.get(`/panel/alert/${id}/`);
   },

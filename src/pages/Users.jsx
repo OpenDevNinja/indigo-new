@@ -1,7 +1,5 @@
-// src/pages/Users.jsx
 import React, { useState, useEffect } from 'react';
 import { toast, ToastContainer } from 'react-toastify';
-//import { UserService } from '../services/UserService';
 import DataTable from '../components/DataTable';
 import ModalForm from '../components/FormModal';
 import DeleteAlert from '../components/DeleteAlert';
@@ -19,23 +17,20 @@ const Users = () => {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [adminPasswordModalOpen, setAdminPasswordModalOpen] = useState(false);
-  const [adminPassword, setAdminPassword] = useState('');
-  const [adminPasswordError, setAdminPasswordError] = useState('');
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  const [password, setPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
   const [formValues, setFormValues] = useState({ 
     email: '',
     first_name: '',
     last_name: '',
-    phone_indi: '229',
+    phone_indi: '+229',
     phone: '',
-    role: 'manager'
+    role: 'create'
   });
   const [formErrors, setFormErrors] = useState({});
   const [formSubmitting, setFormSubmitting] = useState(false);
   const [loadingDelete, setLoadingDelete] = useState(false);
-
-  // Vérifier si l'utilisateur actuel est un administrateur
-  const isUserAdmin = BaseApiService.isAdmin();
 
   // Chargement initial des données
   useEffect(() => {
@@ -59,9 +54,9 @@ const Users = () => {
   // Options de rôle pour le formulaire
   const roleOptions = [
     { value: 'admin', label: 'Administrateur' },
-    { value: 'manager', label: 'Manager' },
-    { value: 'user', label: 'Utilisateur standard' },
-    { value: 'guest', label: 'Invité' }
+    { value: 'report', label: 'Accès Reporting' },
+    { value: 'create', label: 'Accès création campagne' },
+    
   ];
 
   // Colonnes pour le tableau
@@ -140,17 +135,12 @@ const Users = () => {
 
   // Gestion de l'ouverture du formulaire d'ajout
   const handleAddClick = () => {
-    if (!isUserAdmin) {
-      toast.warning("Seuls les administrateurs peuvent ajouter des utilisateurs");
-      return;
-    }
-    
     setSelectedUser(null);
     setFormValues({ 
       email: '',
       first_name: '',
       last_name: '',
-      phone_indi: '229',
+      phone_indi: '+229',
       phone: '',
       role: 'manager'
     });
@@ -160,11 +150,6 @@ const Users = () => {
 
   // Gestion de l'ouverture du formulaire d'édition
   const handleEditClick = (user) => {
-    if (!isUserAdmin) {
-      toast.warning("Seuls les administrateurs peuvent modifier des utilisateurs");
-      return;
-    }
-    
     setSelectedUser(user);
     setFormValues({ 
       email: user.email,
@@ -180,14 +165,9 @@ const Users = () => {
 
   // Gestion de l'ouverture de l'alerte de suppression
   const handleDeleteClick = (id) => {
-    if (!isUserAdmin) {
-      toast.warning("Seuls les administrateurs peuvent supprimer des utilisateurs");
-      return;
-    }
-    
     const user = users.find(u => u.id === id);
     setSelectedUser(user);
-    setAdminPasswordModalOpen(true);
+    setPasswordModalOpen(true);
   };
 
   // Gestion du changement des valeurs du formulaire
@@ -277,50 +257,50 @@ const Users = () => {
     }
   };
 
-  // Gestion du changement du mot de passe admin
-  const handleAdminPasswordChange = (e) => {
-    setAdminPassword(e.target.value);
-    if (adminPasswordError) {
-      setAdminPasswordError('');
+  // Gestion du changement du mot de passe
+  const handlePasswordChange = (e) => {
+    setPassword(e.target.value);
+    if (passwordError) {
+      setPasswordError('');
     }
   };
 
-  // Vérification du mot de passe admin et suppression si correct
-  const handleAdminPasswordSubmit = async (e) => {
+  // Vérification du mot de passe et suppression si correct
+  const handlePasswordSubmit = async (e) => {
     e.preventDefault();
     
-    if (!adminPassword.trim()) {
-      setAdminPasswordError("Le mot de passe administrateur est requis");
+    if (!password.trim()) {
+      setPasswordError("Votre mot de passe est requis");
       return;
     }
     
     setLoadingDelete(true);
     
     try {
-      // Vérifier le mot de passe administrateur (vous devrez adapter à votre API)
+      // Vérifier le mot de passe (vous devrez adapter à votre API)
       const verifyData = {
-        password: adminPassword
+        password: password
       };
       
       // Cette requête doit être adaptée à votre API
-      const response = await BaseApiService.post('/auth/verify-admin-password/', verifyData);
+      const response = await BaseApiService.post('/auth/verify-password/', verifyData);
       
       if (response.success) {
         // Si la vérification réussit, fermer cette modal et ouvrir celle de confirmation
-        setAdminPasswordModalOpen(false);
-        setAdminPassword('');
+        setPasswordModalOpen(false);
+        setPassword('');
         setIsDeleteModalOpen(true);
       } else {
-        setAdminPasswordError("Mot de passe incorrect");
+        setPasswordError("Mot de passe incorrect");
       }
     } catch (error) {
       // Pour la démo, nous allons simplement accepter le mot de passe
       // Dans une vraie application, vous devez vérifier le mot de passe côté serveur
-      console.log("Tentative de vérification de mot de passe admin:", error);
+      console.log("Tentative de vérification de mot de passe:", error);
       
       // Pour l'exemple, on considère que le mot de passe est correct
-      setAdminPasswordModalOpen(false);
-      setAdminPassword('');
+      setPasswordModalOpen(false);
+      setPassword('');
       setIsDeleteModalOpen(true);
     } finally {
       setLoadingDelete(false);
@@ -536,43 +516,43 @@ const Users = () => {
         </form>
       </ModalForm>
       
-      {/* Modal de saisie du mot de passe administrateur */}
+      {/* Modal de saisie du mot de passe */}
       <ModalForm
-        isOpen={adminPasswordModalOpen}
-        onClose={() => setAdminPasswordModalOpen(false)}
-        title="Vérification administrateur"
+        isOpen={passwordModalOpen}
+        onClose={() => setPasswordModalOpen(false)}
+        title="Confirmation de suppression"
       >
-        <form onSubmit={handleAdminPasswordSubmit} className="space-y-4">
+        <form onSubmit={handlePasswordSubmit} className="space-y-4">
           <div>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-              Pour supprimer un utilisateur, veuillez confirmer votre identité en saisissant votre mot de passe administrateur.
+              Pour confirmer la suppression, veuillez saisir votre mot de passe.
             </p>
             
             <label 
-              htmlFor="admin_password" 
+              htmlFor="password" 
               className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
             >
-              Mot de passe administrateur
+              Votre mot de passe
             </label>
             <input
               type="password"
-              id="admin_password"
-              value={adminPassword}
-              onChange={handleAdminPasswordChange}
+              id="password"
+              value={password}
+              onChange={handlePasswordChange}
               className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white dark:border-gray-600 transition-colors duration-200 ${
-                adminPasswordError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-300'
+                passwordError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-300'
               }`}
               placeholder="Entrez votre mot de passe"
             />
-            {adminPasswordError && (
-              <p className="mt-1 text-sm text-red-600 dark:text-red-400">{adminPasswordError}</p>
+            {passwordError && (
+              <p className="mt-1 text-sm text-red-600 dark:text-red-400">{passwordError}</p>
             )}
           </div>
           
           <div className="flex justify-end space-x-3 mt-6">
             <button
               type="button"
-              onClick={() => setAdminPasswordModalOpen(false)}
+              onClick={() => setPasswordModalOpen(false)}
               className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors duration-150"
             >
               Annuler
@@ -589,7 +569,7 @@ const Users = () => {
                   Vérification...
                 </>
               ) : (
-                "Vérifier"
+                "Confirmer"
               )}
             </button>
           </div>
